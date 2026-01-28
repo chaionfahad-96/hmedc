@@ -1,0 +1,2642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HM Communication - EDC Ticket System</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts for Bengali -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        /* Custom Styles */
+        .bengali-font {
+            font-family: 'Noto Sans Bengali', sans-serif;
+        }
+        
+        /* Sidebar Styles */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            width: 16rem;
+            z-index: 40;
+            transform: translateX(-100%);
+            transition: transform 0.3s ease-in-out;
+        }
+        
+        .sidebar-open {
+            transform: translateX(0);
+        }
+        
+        @media (min-width: 1024px) {
+            .sidebar {
+                transform: translateX(0);
+                position: fixed;
+            }
+            
+            .main-content {
+                margin-left: 16rem;
+            }
+        }
+        
+        /* Overlay for mobile */
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 30;
+        }
+        
+        .sidebar-overlay-active {
+            display: block;
+        }
+        
+        /* Priority indicators */
+        .priority-high {
+            border-left-color: #ef4444;
+        }
+        
+        .priority-medium {
+            border-left-color: #f59e0b;
+        }
+        
+        .priority-low {
+            border-left-color: #10b981;
+        }
+        
+        /* Status badges */
+        .status-pending {
+            background-color: #fef3c7;
+            color: #92400e;
+        }
+        
+        .status-in-progress {
+            background-color: #dbeafe;
+            color: #1e40af;
+        }
+        
+        .status-completed {
+            background-color: #d1fae5;
+            color: #065f46;
+        }
+        
+        /* Chat messages */
+        .chat-message-user {
+            background-color: #3b82f6;
+            color: white;
+            border-radius: 18px 18px 4px 18px;
+        }
+        
+        .chat-message-other {
+            background-color: #e5e7eb;
+            color: #1f2937;
+            border-radius: 18px 18px 18px 4px;
+        }
+        
+        /* Ticket card hover effect */
+        .ticket-card {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        
+        .ticket-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* Notification panel */
+        .notification-panel {
+            transform: translateX(100%);
+            transition: transform 0.3s ease-in-out;
+        }
+        
+        .notification-panel-open {
+            transform: translateX(0);
+        }
+        
+        /* Toast notification */
+        .toast-notification {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            z-index: 100;
+            transition: transform 0.5s ease-in-out;
+        }
+        
+        .toast-show {
+            transform: translateX(-50%) translateY(0);
+        }
+        
+        /* Modal styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 100;
+            display: none;
+        }
+        
+        .modal-overlay.active {
+            display: block;
+        }
+        
+        .modal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            border-radius: 0.5rem;
+            z-index: 101;
+            display: none;
+            max-width: 90%;
+            width: 400px;
+        }
+        
+        .modal.active {
+            display: block;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Toast Notification -->
+    <div id="toastNotification" class="toast-notification">
+        <div class="bg-blue-600 text-white px-6 py-4 rounded-lg shadow-lg flex items-center space-x-3">
+            <i class="fas fa-bell"></i>
+            <span id="toastMessage">New notification</span>
+        </div>
+    </div>
+    
+    <!-- Change Password Modal -->
+    <div id="changePasswordModal" class="modal">
+        <div class="p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-semibold text-gray-800" data-en="Change Password" data-bn="পাসওয়ার্ড পরিবর্তন করুন">Change Password</h3>
+                <button id="closeChangePasswordModal" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="changePasswordForm">
+                <div class="mb-4">
+                    <label class="block text-gray-700 mb-2" for="currentPassword" data-en="Current Password" data-bn="বর্তমান পাসওয়ার্ড">Current Password</label>
+                    <input type="password" id="currentPassword" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-gray-700 mb-2" for="newPassword" data-en="New Password" data-bn="নতুন পাসওয়ার্ড">New Password</label>
+                    <input type="password" id="newPassword" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required minlength="6">
+                </div>
+                <div class="mb-6">
+                    <label class="block text-gray-700 mb-2" for="confirmPassword" data-en="Confirm New Password" data-bn="নতুন পাসওয়ার্ড নিশ্চিত করুন">Confirm New Password</label>
+                    <input type="password" id="confirmPassword" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required minlength="6">
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button type="button" id="cancelChangePassword" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50" data-en="Cancel" data-bn="বাতিল করুন">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700" data-en="Change Password" data-bn="পাসওয়ার্ড পরিবর্তন করুন">Change Password</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div id="changePasswordModalOverlay" class="modal-overlay"></div>
+    
+    <!-- Create Admin Modal -->
+    <div id="createAdminModal" class="modal">
+        <div class="p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-semibold text-gray-800" data-en="Create New Admin" data-bn="নতুন অ্যাডমিন তৈরি করুন">Create New Admin</h3>
+                <button id="closeCreateAdminModal" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="createAdminForm">
+                <div class="mb-4">
+                    <label class="block text-gray-700 mb-2" for="adminUsername" data-en="Username" data-bn="ব্যবহারকারীর নাম">Username</label>
+                    <input type="text" id="adminUsername" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-gray-700 mb-2" for="adminEmail" data-en="Email" data-bn="ইমেইল">Email</label>
+                    <input type="email" id="adminEmail" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                </div>
+                <div class="mb-6">
+                    <label class="block text-gray-700 mb-2" for="adminPassword" data-en="Password" data-bn="পাসওয়ার্ড">Password</label>
+                    <input type="password" id="adminPassword" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required minlength="6">
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button type="button" id="cancelCreateAdmin" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50" data-en="Cancel" data-bn="বাতিল করুন">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700" data-en="Create Admin" data-bn="অ্যাডমিন তৈরি করুন">Create Admin</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div id="createAdminModalOverlay" class="modal-overlay"></div>
+    
+    <!-- Language Toggle -->
+    <div class="fixed top-4 right-4 z-50">
+        <button id="languageToggle" class="bg-blue-600 text-white px-4 py-2 rounded-lg shadow-md hover:bg-blue-700 transition-colors flex items-center space-x-2">
+            <i class="fas fa-language"></i>
+            <span id="languageText">বাংলা</span>
+        </button>
+    </div>
+    
+    <!-- Login Page -->
+    <div id="loginPage" class="min-h-screen flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-8">
+            <div class="text-center mb-10">
+                <h1 class="text-3xl font-bold text-gray-800 mb-2" data-en="HM Communication - EDC Project" data-bn="এইচএম কমিউনিকেশন - ইডিসি প্রকল্প">HM Communication - EDC Project</h1>
+                <p class="text-gray-600" data-en="Sign in to manage tickets and tasks" data-bn="টিকিট এবং কাজ পরিচালনা করতে সাইন ইন করুন">Sign in to manage tickets and tasks</p>
+                <div class="mt-4 text-gray-500 text-sm">
+                    <div id="loginDateTime"></div>
+                </div>
+            </div>
+            
+            <form id="loginForm">
+                <div class="mb-6">
+                    <label class="block text-gray-700 mb-2" for="username" data-en="Username" data-bn="ব্যবহারকারীর নাম">Username</label>
+                    <input type="text" id="username" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Enter your username" required>
+                </div>
+                
+                <div class="mb-6">
+                    <label class="block text-gray-700 mb-2" for="password" data-en="Password" data-bn="পাসওয়ার্ড">Password</label>
+                    <input type="password" id="password" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Enter your password" required>
+                </div>
+                
+                <div class="mb-6">
+                    <label class="block text-gray-700 mb-2" for="role" data-en="Login As" data-bn="হিসাবে লগইন করুন">Login As</label>
+                    <select id="role" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="senior" data-en="Senior Engineer (Admin)" data-bn="সিনিয়র ইঞ্জিনিয়ার (অ্যাডমিন)">Senior Engineer (Admin)</option>
+                        <option value="support" data-en="Support Engineer (User)" data-bn="সাপোর্ট ইঞ্জিনিয়ার (ব্যবহারকারী)">Support Engineer (User)</option>
+                    </select>
+                </div>
+                
+                <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors" data-en="Sign In" data-bn="সাইন ইন করুন">Sign In</button>
+            </form>
+            
+            <div class="mt-8 text-center text-gray-600 text-sm">
+                <p data-en="Demo Credentials:" data-bn="ডেমো প্রমাণপত্র:">Demo Credentials:</p>
+                <p data-en="Senior Engineer: admin / password123" data-bn="সিনিয়র ইঞ্জিনিয়ার: admin / password123">Senior Engineer: admin / password123</p>
+                <p data-en="Support Engineer: user1 / password123" data-bn="সাপোর্ট ইঞ্জিনিয়ার: user1 / password123">Support Engineer: user1 / password123</p>
+                <p data-en="Support Engineer: user2 / password123" data-bn="সাপোর্ট ইঞ্জিনিয়ার: user2 / password123">Support Engineer: user2 / password123</p>
+                <p data-en="Support Engineer: user3 / password123" data-bn="সাপোর্ট ইঞ্জিনিয়ার: user3 / password123">Support Engineer: user3 / password123</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Main Application -->
+    <div id="appContainer" class="hidden">
+        <!-- Mobile Sidebar Overlay -->
+        <div id="sidebarOverlay" class="sidebar-overlay"></div>
+        
+        <!-- Sidebar -->
+        <div id="sidebar" class="sidebar bg-gray-900 text-white flex flex-col">
+            <div class="p-6 border-b border-gray-800">
+                <h1 class="text-xl font-bold" id="appTitle" data-en="HM Communication" data-bn="এইচএম কমিউনিকেশন">HM Communication</h1>
+                <p class="text-gray-400 text-sm mt-1" id="userRoleDisplay" data-en="EDC Ticket System - Senior Engineer" data-bn="ইডিসি টিকিট ব্যবস্থা - সিনিয়র ইঞ্জিনিয়ার">EDC Ticket System - Senior Engineer</p>
+            </div>
+            
+            <div class="p-4 border-b border-gray-800">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <div>
+                        <p class="font-medium" id="usernameDisplay">Admin</p>
+                        <p class="text-gray-400 text-sm" id="userEmail">admin@hmcommunication.com</p>
+                    </div>
+                </div>
+                <div class="mt-3 text-xs text-gray-400" id="sidebarDateTime"></div>
+            </div>
+            
+            <nav class="flex-1 p-4">
+                <ul class="space-y-2">
+                    <li>
+                        <a href="#" id="dashboardLink" class="flex items-center space-x-3 p-3 rounded-lg bg-blue-800">
+                            <i class="fas fa-tachometer-alt"></i>
+                            <span data-en="Dashboard" data-bn="ড্যাশবোর্ড">Dashboard</span>
+                        </a>
+                    </li>
+                    <li id="createTicketNav" class="hidden">
+                        <a href="#" id="createTicketLink" class="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-800">
+                            <i class="fas fa-plus-circle"></i>
+                            <span data-en="Create Ticket" data-bn="টিকিট তৈরি করুন">Create Ticket</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" id="myTicketsLink" class="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-800">
+                            <i class="fas fa-ticket-alt"></i>
+                            <span data-en="My Tickets" data-bn="আমার টিকিট">My Tickets</span>
+                        </a>
+                    </li>
+                    <li id="allTicketsNav" class="hidden">
+                        <a href="#" id="allTicketsLink" class="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-800">
+                            <i class="fas fa-list"></i>
+                            <span data-en="All Tickets" data-bn="সমস্ত টিকিট">All Tickets</span>
+                        </a>
+                    </li>
+                    <li id="userManagementNav" class="hidden">
+                        <a href="#" id="userManagementLink" class="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-800">
+                            <i class="fas fa-users-cog"></i>
+                            <span data-en="User Management" data-bn="ব্যবহারকারী ব্যবস্থাপনা">User Management</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" id="changePasswordLink" class="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-800">
+                            <i class="fas fa-key"></i>
+                            <span data-en="Change Password" data-bn="পাসওয়ার্ড পরিবর্তন">Change Password</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" id="logoutLink" class="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-800 mt-8">
+                            <i class="fas fa-sign-out-alt"></i>
+                            <span data-en="Logout" data-bn="লগআউট">Logout</span>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+            
+            <div class="p-4 border-t border-gray-800 text-xs text-gray-400">
+                <div id="footerDateTime"></div>
+                <div class="mt-1">© 2024 HM Communication</div>
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="main-content min-h-screen">
+            <!-- Top Bar -->
+            <header class="bg-white shadow-sm p-4">
+                <div class="flex justify-between items-center">
+                    <div class="flex items-center space-x-4">
+                        <!-- Mobile Menu Button -->
+                        <button id="mobileMenuButton" class="lg:hidden bg-blue-600 text-white p-2 rounded-lg">
+                            <i class="fas fa-bars"></i>
+                        </button>
+                        <div>
+                            <h2 class="text-xl font-semibold text-gray-800" id="pageTitle" data-en="Dashboard" data-bn="ড্যাশবোর্ড">Dashboard</h2>
+                            <p class="text-gray-600 text-sm" id="pageSubtitle" data-en="Welcome to HM Communication Ticket System" data-bn="এইচএম কমিউনিকেশন টিকিট ব্যবস্থায় স্বাগতম">Welcome to HM Communication Ticket System</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <div class="hidden lg:flex items-center space-x-2 bg-blue-50 px-4 py-2 rounded-lg">
+                            <i class="fas fa-user-circle text-blue-600"></i>
+                            <span id="topUsernameDisplay" class="font-medium">Admin</span>
+                        </div>
+                        <div class="hidden md:block text-gray-600 text-sm" id="headerDateTime"></div>
+                        <div class="relative">
+                            <button id="notificationButton" class="bg-gray-100 p-2 rounded-lg hover:bg-gray-200">
+                                <i class="fas fa-bell text-gray-700"></i>
+                                <span id="notificationCount" class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center hidden">0</span>
+                            </button>
+                        </div>
+                        <button id="createAdminButton" class="hidden bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center space-x-2">
+                            <i class="fas fa-user-plus"></i>
+                            <span data-en="Create Admin" data-bn="অ্যাডমিন তৈরি করুন">Create Admin</span>
+                        </button>
+                    </div>
+                </div>
+            </header>
+            
+            <!-- Main Content Area -->
+            <main class="p-4 md:p-6">
+                <!-- Dashboard Content -->
+                <div id="dashboardContent">
+                    <!-- Stats Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        <div class="bg-white rounded-xl shadow p-6">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-gray-500 text-sm" data-en="Total Tickets" data-bn="মোট টিকিট">Total Tickets</p>
+                                    <h3 class="text-3xl font-bold text-gray-800" id="totalTickets">0</h3>
+                                </div>
+                                <div class="bg-blue-100 p-3 rounded-full">
+                                    <i class="fas fa-ticket-alt text-blue-600 text-xl"></i>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white rounded-xl shadow p-6">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-gray-500 text-sm" data-en="In Progress" data-bn="চলমান">In Progress</p>
+                                    <h3 class="text-3xl font-bold text-gray-800" id="inProgressTickets">0</h3>
+                                </div>
+                                <div class="bg-yellow-100 p-3 rounded-full">
+                                    <i class="fas fa-spinner text-yellow-600 text-xl"></i>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white rounded-xl shadow p-6">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-gray-500 text-sm" data-en="Completed" data-bn="সম্পন্ন">Completed</p>
+                                    <h3 class="text-3xl font-bold text-gray-800" id="completedTickets">0</h3>
+                                </div>
+                                <div class="bg-green-100 p-3 rounded-full">
+                                    <i class="fas fa-check-circle text-green-600 text-xl"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Recent Tickets -->
+                    <div class="bg-white rounded-xl shadow overflow-hidden">
+                        <div class="p-6 border-b border-gray-200">
+                            <h3 class="text-lg font-semibold text-gray-800" data-en="Recent Tickets" data-bn="সাম্প্রতিক টিকিট">Recent Tickets</h3>
+                        </div>
+                        <div class="p-4">
+                            <div id="recentTicketsList" class="space-y-4">
+                                <!-- Tickets will be loaded here -->
+                                <div class="text-center py-8 text-gray-500" data-en="No tickets found" data-bn="কোন টিকিট পাওয়া যায়নি">No tickets found</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Create Ticket Content -->
+                <div id="createTicketContent" class="hidden">
+                    <div class="bg-white rounded-xl shadow overflow-hidden">
+                        <div class="p-6 border-b border-gray-200">
+                            <h3 class="text-lg font-semibold text-gray-800" data-en="Create New Ticket" data-bn="নতুন টিকিট তৈরি করুন">Create New Ticket</h3>
+                        </div>
+                        <div class="p-6">
+                            <form id="createTicketForm">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div>
+                                        <label class="block text-gray-700 mb-2" for="ticketTitle" data-en="Ticket Title" data-bn="টিকিট শিরোনাম">Ticket Title</label>
+                                        <input type="text" id="ticketTitle" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                                    </div>
+                                    
+                                    <div>
+                                        <label class="block text-gray-700 mb-2" for="ticketPriority" data-en="Priority" data-bn="অগ্রাধিকার">Priority</label>
+                                        <select id="ticketPriority" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                            <option value="high" data-en="High" data-bn="উচ্চ">High</option>
+                                            <option value="medium" data-en="Medium" data-bn="মাধ্যম">Medium</option>
+                                            <option value="low" data-en="Low" data-bn="নিম্ন">Low</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div class="md:col-span-2">
+                                        <label class="block text-gray-700 mb-2" for="ticketDescription" data-en="Description" data-bn="বর্ণনা">Description</label>
+                                        <textarea id="ticketDescription" rows="4" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required></textarea>
+                                    </div>
+                                    
+                                    <div id="assignToField">
+                                        <label class="block text-gray-700 mb-2" for="assignTo" data-en="Assign To" data-bn="অ্যাসাইন করুন">Assign To</label>
+                                        <select id="assignTo" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                            <!-- Support engineers will be loaded dynamically -->
+                                        </select>
+                                    </div>
+                                    
+                                    <div>
+                                        <label class="block text-gray-700 mb-2" for="ticketAttachment" data-en="Attachment (Simulation)" data-bn="সংযুক্তি (সিমুলেশন)">Attachment (Simulation)</label>
+                                        <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                                            <i class="fas fa-cloud-upload-alt text-gray-400 text-3xl mb-2"></i>
+                                            <p class="text-gray-500 mb-2" data-en="Click to upload or drag and drop" data-bn="আপলোড করতে ক্লিক করুন বা ড্র্যাগ এবং ড্রপ করুন">Click to upload or drag and drop</p>
+                                            <p class="text-gray-400 text-sm" data-en="Max file size: 10MB" data-bn="সর্বোচ্চ ফাইলের আকার: ১০ এমবি">Max file size: 10MB</p>
+                                            <input type="file" id="ticketAttachment" class="hidden">
+                                            <button type="button" id="simulateUpload" class="mt-4 bg-blue-100 text-blue-600 px-4 py-2 rounded-lg hover:bg-blue-200" data-en="Simulate Upload" data-bn="আপলোড সিমুলেশন করুন">Simulate Upload</button>
+                                        </div>
+                                        <div id="attachmentPreview" class="mt-4 hidden">
+                                            <div class="flex items-center justify-between bg-gray-100 p-3 rounded-lg">
+                                                <div class="flex items-center space-x-3">
+                                                    <i class="fas fa-file text-gray-600"></i>
+                                                    <div>
+                                                        <p class="font-medium" id="fileName">document.pdf</p>
+                                                        <p class="text-gray-500 text-sm" id="fileSize">1.2 MB</p>
+                                                    </div>
+                                                </div>
+                                                <button type="button" id="removeAttachment" class="text-red-500 hover:text-red-700">
+                                                    <i class="fas fa-times"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="mt-8 flex justify-end space-x-4">
+                                    <button type="button" id="cancelCreateTicket" class="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50" data-en="Cancel" data-bn="বাতিল করুন">Cancel</button>
+                                    <button type="submit" class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700" data-en="Create Ticket" data-bn="টিকিট তৈরি করুন">Create Ticket</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- My Tickets Content -->
+                <div id="myTicketsContent" class="hidden">
+                    <div class="bg-white rounded-xl shadow overflow-hidden">
+                        <div class="p-6 border-b border-gray-200 flex flex-col md:flex-row md:justify-between md:items-center space-y-4 md:space-y-0">
+                            <h3 class="text-lg font-semibold text-gray-800" data-en="My Tickets" data-bn="আমার টিকিট">My Tickets</h3>
+                            <div class="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-4">
+                                <div class="relative">
+                                    <input type="text" id="searchMyTickets" class="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-full" placeholder="Search tickets..." data-en="Search tickets..." data-bn="টিকিট অনুসন্ধান করুন...">
+                                    <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+                                </div>
+                                <select id="filterMyTickets" class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="all" data-en="All Status" data-bn="সব অবস্থা">All Status</option>
+                                    <option value="pending" data-en="Pending" data-bn="বিচারাধীন">Pending</option>
+                                    <option value="in-progress" data-en="In Progress" data-bn="চলমান">In Progress</option>
+                                    <option value="completed" data-en="Completed" data-bn="সম্পন্ন">Completed</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="p-4">
+                            <div id="myTicketsList" class="space-y-4">
+                                <!-- My tickets will be loaded here -->
+                                <div class="text-center py-8 text-gray-500" data-en="No tickets assigned to you" data-bn="আপনার কাছে কোন টিকিট অ্যাসাইন করা হয়নি">No tickets assigned to you</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- All Tickets Content -->
+                <div id="allTicketsContent" class="hidden">
+                    <div class="bg-white rounded-xl shadow overflow-hidden">
+                        <div class="p-6 border-b border-gray-200 flex flex-col md:flex-row md:justify-between md:items-center space-y-4 md:space-y-0">
+                            <h3 class="text-lg font-semibold text-gray-800" data-en="All Tickets" data-bn="সমস্ত টিকিট">All Tickets</h3>
+                            <div class="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-4">
+                                <div class="relative">
+                                    <input type="text" id="searchAllTickets" class="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-full" placeholder="Search all tickets..." data-en="Search all tickets..." data-bn="সমস্ত টিকিট অনুসন্ধান করুন...">
+                                    <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+                                </div>
+                                <select id="filterAllTickets" class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="all" data-en="All Status" data-bn="সব অবস্থা">All Status</option>
+                                    <option value="pending" data-en="Pending" data-bn="বিচারাধীন">Pending</option>
+                                    <option value="in-progress" data-en="In Progress" data-bn="চলমান">In Progress</option>
+                                    <option value="completed" data-en="Completed" data-bn="সম্পন্ন">Completed</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="py-3 px-4 text-left text-sm font-medium text-gray-700" data-en="ID" data-bn="আইডি">ID</th>
+                                        <th class="py-3 px-4 text-left text-sm font-medium text-gray-700" data-en="Title" data-bn="শিরোনাম">Title</th>
+                                        <th class="py-3 px-4 text-left text-sm font-medium text-gray-700" data-en="Priority" data-bn="অগ্রাধিকার">Priority</th>
+                                        <th class="py-3 px-4 text-left text-sm font-medium text-gray-700" data-en="Status" data-bn="অবস্থা">Status</th>
+                                        <th class="py-3 px-4 text-left text-sm font-medium text-gray-700" data-en="Assigned To" data-bn="অ্যাসাইন করা">Assigned To</th>
+                                        <th class="py-3 px-4 text-left text-sm font-medium text-gray-700" data-en="Created" data-bn="তৈরি">Created</th>
+                                        <th class="py-3 px-4 text-left text-sm font-medium text-gray-700" data-en="Actions" data-bn="কার্যক্রম">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="allTicketsTableBody" class="divide-y divide-gray-200">
+                                    <!-- All tickets will be loaded here -->
+                                    <tr>
+                                        <td colspan="7" class="py-8 text-center text-gray-500" data-en="No tickets found" data-bn="কোন টিকিট পাওয়া যায়নি">No tickets found</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- User Management Content -->
+                <div id="userManagementContent" class="hidden">
+                    <div class="bg-white rounded-xl shadow overflow-hidden">
+                        <div class="p-6 border-b border-gray-200">
+                            <div class="flex justify-between items-center">
+                                <h3 class="text-lg font-semibold text-gray-800" data-en="User Management" data-bn="ব্যবহারকারী ব্যবস্থাপনা">User Management</h3>
+                                <button id="createSupportEngineerBtn" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2">
+                                    <i class="fas fa-user-plus"></i>
+                                    <span data-en="Create Support Engineer" data-bn="সাপোর্ট ইঞ্জিনিয়ার তৈরি করুন">Create Support Engineer</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="p-6">
+                            <div class="overflow-x-auto">
+                                <table class="w-full">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="py-3 px-4 text-left text-sm font-medium text-gray-700" data-en="ID" data-bn="আইডি">ID</th>
+                                            <th class="py-3 px-4 text-left text-sm font-medium text-gray-700" data-en="Username" data-bn="ব্যবহারকারীর নাম">Username</th>
+                                            <th class="py-3 px-4 text-left text-sm font-medium text-gray-700" data-en="Email" data-bn="ইমেইল">Email</th>
+                                            <th class="py-3 px-4 text-left text-sm font-medium text-gray-700" data-en="Role" data-bn="ভূমিকা">Role</th>
+                                            <th class="py-3 px-4 text-left text-sm font-medium text-gray-700" data-en="Status" data-bn="অবস্থা">Status</th>
+                                            <th class="py-3 px-4 text-left text-sm font-medium text-gray-700" data-en="Created" data-bn="তৈরি">Created</th>
+                                            <th class="py-3 px-4 text-left text-sm font-medium text-gray-700" data-en="Actions" data-bn="কার্যক্রম">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="userManagementTableBody" class="divide-y divide-gray-200">
+                                        <!-- Users will be loaded here -->
+                                        <tr>
+                                            <td colspan="7" class="py-8 text-center text-gray-500" data-en="No users found" data-bn="কোন ব্যবহারকারী পাওয়া যায়নি">No users found</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Ticket Detail Content -->
+                <div id="ticketDetailContent" class="hidden">
+                    <!-- Ticket detail will be loaded here -->
+                </div>
+            </main>
+        </div>
+        
+        <!-- Notification Panel -->
+        <div id="notificationPanel" class="notification-panel fixed top-0 right-0 h-full w-80 bg-white shadow-xl z-50">
+            <div class="p-6 border-b border-gray-200">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-lg font-semibold text-gray-800" data-en="Notifications" data-bn="বিজ্ঞপ্তি">Notifications</h3>
+                    <button id="closeNotificationPanel" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="p-4 overflow-y-auto h-full">
+                <div id="notificationList" class="space-y-4">
+                    <!-- Notifications will be loaded here -->
+                    <div class="text-center py-8 text-gray-500" data-en="No notifications" data-bn="কোন বিজ্ঞপ্তি নেই">No notifications</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Notification Overlay -->
+        <div id="notificationOverlay" class="hidden fixed inset-0 bg-black bg-opacity-50 z-40"></div>
+    </div>
+
+    <script>
+        // Application State
+        const state = {
+            currentUser: null,
+            currentLanguage: 'en',
+            tickets: [],
+            notifications: [],
+            users: [
+                { id: 'admin', username: 'admin', email: 'admin@hmcommunication.com', role: 'senior', password: 'password123', createdAt: new Date(Date.now() - 86400000).toISOString(), active: true },
+                { id: 'user1', username: 'user1', email: 'user1@hmcommunication.com', role: 'support', password: 'password123', createdAt: new Date(Date.now() - 172800000).toISOString(), active: true },
+                { id: 'user2', username: 'user2', email: 'user2@hmcommunication.com', role: 'support', password: 'password123', createdAt: new Date(Date.now() - 259200000).toISOString(), active: true },
+                { id: 'user3', username: 'user3', email: 'user3@hmcommunication.com', role: 'support', password: 'password123', createdAt: new Date(Date.now() - 345600000).toISOString(), active: true }
+            ],
+            nextTicketId: 4,
+            nextNotificationId: 1,
+            nextUserId: 5
+        };
+        
+        // Language Translations
+        const translations = {
+            en: {
+                // Login Page
+                "HM Communication - EDC Project": "HM Communication - EDC Project",
+                "Sign in to manage tickets and tasks": "Sign in to manage tickets and tasks",
+                "Username": "Username",
+                "Password": "Password",
+                "Login As": "Login As",
+                "Senior Engineer (Admin)": "Senior Engineer (Admin)",
+                "Support Engineer (User)": "Support Engineer (User)",
+                "Sign In": "Sign In",
+                "Demo Credentials:": "Demo Credentials:",
+                "Senior Engineer: admin / password123": "Senior Engineer: admin / password123",
+                "Support Engineer: user1 / password123": "Support Engineer: user1 / password123",
+                "Support Engineer: user2 / password123": "Support Engineer: user2 / password123",
+                "Support Engineer: user3 / password123": "Support Engineer: user3 / password123",
+                
+                // App
+                "HM Communication": "HM Communication",
+                "EDC Ticket System - Senior Engineer": "EDC Ticket System - Senior Engineer",
+                "EDC Ticket System - Support Engineer": "EDC Ticket System - Support Engineer",
+                "Senior Engineer": "Senior Engineer",
+                "Support Engineer": "Support Engineer",
+                "Dashboard": "Dashboard",
+                "Create Ticket": "Create Ticket",
+                "My Tickets": "My Tickets",
+                "All Tickets": "All Tickets",
+                "User Management": "User Management",
+                "Change Password": "Change Password",
+                "Logout": "Logout",
+                "Welcome to HM Communication Ticket System": "Welcome to HM Communication Ticket System",
+                "Total Tickets": "Total Tickets",
+                "In Progress": "In Progress",
+                "Completed": "Completed",
+                "Recent Tickets": "Recent Tickets",
+                "No tickets found": "No tickets found",
+                "Create New Ticket": "Create New Ticket",
+                "Ticket Title": "Ticket Title",
+                "Priority": "Priority",
+                "High": "High",
+                "Medium": "Medium",
+                "Low": "Low",
+                "Description": "Description",
+                "Assign To": "Assign To",
+                "Support Engineer 1": "Support Engineer 1",
+                "Support Engineer 2": "Support Engineer 2",
+                "Support Engineer 3": "Support Engineer 3",
+                "Attachment (Simulation)": "Attachment (Simulation)",
+                "Click to upload or drag and drop": "Click to upload or drag and drop",
+                "Max file size: 10MB": "Max file size: 10MB",
+                "Simulate Upload": "Simulate Upload",
+                "Cancel": "Cancel",
+                "Search tickets...": "Search tickets...",
+                "Search all tickets...": "Search all tickets...",
+                "All Status": "All Status",
+                "Pending": "Pending",
+                "In Progress": "In Progress",
+                "Completed": "Completed",
+                "No tickets assigned to you": "No tickets assigned to you",
+                "ID": "ID",
+                "Title": "Title",
+                "Status": "Status",
+                "Assigned To": "Assigned To",
+                "Created": "Created",
+                "Actions": "Actions",
+                "Notifications": "Notifications",
+                "No notifications": "No notifications",
+                "View Details": "View Details",
+                "Update Status": "Update Status",
+                "Add Comment": "Add Comment",
+                "Ticket Details": "Ticket Details",
+                "Back to Tickets": "Back to Tickets",
+                "Assigned to": "Assigned to",
+                "Created on": "Created on",
+                "Last updated": "Last updated",
+                "Comments": "Comments",
+                "Type a message...": "Type a message...",
+                "Send": "Send",
+                "Simulate File": "Simulate File",
+                "Update": "Update",
+                "Close": "Close",
+                "Attachments": "Attachments",
+                "No attachments": "No attachments",
+                "Mark as In Progress": "Mark as In Progress",
+                "Mark as Completed": "Mark as Completed",
+                "Ticket Created": "Ticket Created",
+                "Ticket Updated": "Ticket Updated",
+                "New Comment": "New Comment",
+                "New ticket assigned to you": "New ticket assigned to you",
+                "Ticket status updated": "Ticket status updated",
+                "New comment on ticket": "New comment on ticket",
+                "Created by": "Created by",
+                "Reassign": "Reassign",
+                "No comments yet": "No comments yet",
+                "New attachment added to ticket": "New attachment added to ticket",
+                "Create Admin": "Create Admin",
+                "Change Password": "Change Password",
+                "Current Password": "Current Password",
+                "New Password": "New Password",
+                "Confirm New Password": "Confirm New Password",
+                "Password changed successfully": "Password changed successfully",
+                "Passwords do not match": "Passwords do not match",
+                "Incorrect current password": "Incorrect current password",
+                "Create Support Engineer": "Create Support Engineer",
+                "Username": "Username",
+                "Email": "Email",
+                "Role": "Role",
+                "Active": "Active",
+                "Inactive": "Inactive",
+                "Reset Password": "Reset Password",
+                "Deactivate": "Deactivate",
+                "Activate": "Activate",
+                "User created successfully": "User created successfully",
+                "Admin created successfully": "Admin created successfully",
+                "Password reset successful": "Password reset successful",
+                "User status updated": "User status updated",
+                "New user created": "New user created",
+                "Login successful": "Login successful",
+                "Welcome back": "Welcome back"
+            },
+            bn: {
+                // Login Page
+                "HM Communication - EDC Project": "এইচএম কমিউনিকেশন - ইডিসি প্রকল্প",
+                "Sign in to manage tickets and tasks": "টিকিট এবং কাজ পরিচালনা করতে সাইন ইন করুন",
+                "Username": "ব্যবহারকারীর নাম",
+                "Password": "পাসওয়ার্ড",
+                "Login As": "হিসাবে লগইন করুন",
+                "Senior Engineer (Admin)": "সিনিয়র ইঞ্জিনিয়ার (অ্যাডমিন)",
+                "Support Engineer (User)": "সাপোর্ট ইঞ্জিনিয়ার (ব্যবহারকারী)",
+                "Sign In": "সাইন ইন করুন",
+                "Demo Credentials:": "ডেমো প্রমাণপত্র:",
+                "Senior Engineer: admin / password123": "সিনিয়র ইঞ্জিনিয়ার: admin / password123",
+                "Support Engineer: user1 / password123": "সাপোর্ট ইঞ্জিনিয়ার: user1 / password123",
+                "Support Engineer: user2 / password123": "সাপোর্ট ইঞ্জিনিয়ার: user2 / password123",
+                "Support Engineer: user3 / password123": "সাপোর্ট ইঞ্জিনিয়ার: user3 / password123",
+                
+                // App
+                "HM Communication": "এইচএম কমিউনিকেশন",
+                "EDC Ticket System - Senior Engineer": "ইডিসি টিকিট ব্যবস্থা - সিনিয়র ইঞ্জিনিয়ার",
+                "EDC Ticket System - Support Engineer": "ইডিসি টিকিট ব্যবস্থা - সাপোর্ট ইঞ্জিনিয়ার",
+                "Senior Engineer": "সিনিয়র ইঞ্জিনিয়ার",
+                "Support Engineer": "সাপোর্ট ইঞ্জিনিয়ার",
+                "Dashboard": "ড্যাশবোর্ড",
+                "Create Ticket": "টিকিট তৈরি করুন",
+                "My Tickets": "আমার টিকিট",
+                "All Tickets": "সমস্ত টিকিট",
+                "User Management": "ব্যবহারকারী ব্যবস্থাপনা",
+                "Change Password": "পাসওয়ার্ড পরিবর্তন",
+                "Logout": "লগআউট",
+                "Welcome to HM Communication Ticket System": "এইচএম কমিউনিকেশন টিকিট ব্যবস্থায় স্বাগতম",
+                "Total Tickets": "মোট টিকিট",
+                "In Progress": "চলমান",
+                "Completed": "সম্পন্ন",
+                "Recent Tickets": "সাম্প্রতিক টিকিট",
+                "No tickets found": "কোন টিকিট পাওয়া যায়নি",
+                "Create New Ticket": "নতুন টিকিট তৈরি করুন",
+                "Ticket Title": "টিকিট শিরোনাম",
+                "Priority": "অগ্রাধিকার",
+                "High": "উচ্চ",
+                "Medium": "মাধ্যম",
+                "Low": "নিম্ন",
+                "Description": "বর্ণনা",
+                "Assign To": "অ্যাসাইন করুন",
+                "Support Engineer 1": "সাপোর্ট ইঞ্জিনিয়ার ১",
+                "Support Engineer 2": "সাপোর্ট ইঞ্জিনিয়ার ২",
+                "Support Engineer 3": "সাপোর্ট ইঞ্জিনিয়ার ৩",
+                "Attachment (Simulation)": "সংযুক্তি (সিমুলেশন)",
+                "Click to upload or drag and drop": "আপলোড করতে ক্লিক করুন বা ড্র্যাগ এবং ড্রপ করুন",
+                "Max file size: 10MB": "সর্বোচ্চ ফাইলের আকার: ১০ এমবি",
+                "Simulate Upload": "আপলোড সিমুলেশন করুন",
+                "Cancel": "বাতিল করুন",
+                "Search tickets...": "টিকিট অনুসন্ধান করুন...",
+                "Search all tickets...": "সমস্ত টিকিট অনুসন্ধান করুন...",
+                "All Status": "সব অবস্থা",
+                "Pending": "বিচারাধীন",
+                "In Progress": "চলমান",
+                "Completed": "সম্পন্ন",
+                "No tickets assigned to you": "আপনার কাছে কোন টিকিট অ্যাসাইন করা হয়নি",
+                "ID": "আইডি",
+                "Title": "শিরোনাম",
+                "Status": "অবস্থা",
+                "Assigned To": "অ্যাসাইন করা",
+                "Created": "তৈরি",
+                "Actions": "কার্যক্রম",
+                "Notifications": "বিজ্ঞপ্তি",
+                "No notifications": "কোন বিজ্ঞপ্তি নেই",
+                "View Details": "বিস্তারিত দেখুন",
+                "Update Status": "অবস্থা আপডেট করুন",
+                "Add Comment": "মন্তব্য যোগ করুন",
+                "Ticket Details": "টিকিট বিবরণ",
+                "Back to Tickets": "টিকিটে ফিরে যান",
+                "Assigned to": "অ্যাসাইন করা হয়েছে",
+                "Created on": "তৈরি হয়েছে",
+                "Last updated": "সর্বশেষ আপডেট",
+                "Comments": "মন্তব্য",
+                "Type a message...": "একটি বার্তা লিখুন...",
+                "Send": "প্রেরণ করুন",
+                "Simulate File": "ফাইল সিমুলেশন করুন",
+                "Update": "আপডেট করুন",
+                "Close": "বন্ধ করুন",
+                "Attachments": "সংযুক্তি",
+                "No attachments": "কোন সংযুক্তি নেই",
+                "Mark as In Progress": "চলমান হিসাবে চিহ্নিত করুন",
+                "Mark as Completed": "সম্পন্ন হিসাবে চিহ্নিত করুন",
+                "Ticket Created": "টিকিট তৈরি হয়েছে",
+                "Ticket Updated": "টিকিট আপডেট হয়েছে",
+                "New Comment": "নতুন মন্তব্য",
+                "New ticket assigned to you": "আপনার কাছে নতুন টিকিট অ্যাসাইন করা হয়েছে",
+                "Ticket status updated": "টিকিটের অবস্থা আপডেট করা হয়েছে",
+                "New comment on ticket": "টিকিটে নতুন মন্তব্য",
+                "Created by": "তৈরি করেছেন",
+                "Reassign": "পুনরায় অ্যাসাইন করুন",
+                "No comments yet": "এখনো কোন মন্তব্য নেই",
+                "New attachment added to ticket": "টিকিটে নতুন সংযুক্তি যোগ করা হয়েছে",
+                "Create Admin": "অ্যাডমিন তৈরি করুন",
+                "Change Password": "পাসওয়ার্ড পরিবর্তন",
+                "Current Password": "বর্তমান পাসওয়ার্ড",
+                "New Password": "নতুন পাসওয়ার্ড",
+                "Confirm New Password": "নতুন পাসওয়ার্ড নিশ্চিত করুন",
+                "Password changed successfully": "পাসওয়ার্ড সফলভাবে পরিবর্তন হয়েছে",
+                "Passwords do not match": "পাসওয়ার্ড মিলছে না",
+                "Incorrect current password": "বর্তমান পাসওয়ার্ড ভুল",
+                "Create Support Engineer": "সাপোর্ট ইঞ্জিনিয়ার তৈরি করুন",
+                "Username": "ব্যবহারকারীর নাম",
+                "Email": "ইমেইল",
+                "Role": "ভূমিকা",
+                "Active": "সক্রিয়",
+                "Inactive": "নিষ্ক্রিয়",
+                "Reset Password": "পাসওয়ার্ড রিসেট করুন",
+                "Deactivate": "নিষ্ক্রিয় করুন",
+                "Activate": "সক্রিয় করুন",
+                "User created successfully": "ব্যবহারকারী সফলভাবে তৈরি হয়েছে",
+                "Admin created successfully": "অ্যাডমিন সফলভাবে তৈরি হয়েছে",
+                "Password reset successful": "পাসওয়ার্ড রিসেট সফল হয়েছে",
+                "User status updated": "ব্যবহারকারীর অবস্থা আপডেট হয়েছে",
+                "New user created": "নতুন ব্যবহারকারী তৈরি হয়েছে",
+                "Login successful": "লগইন সফল হয়েছে",
+                "Welcome back": "স্বাগতম"
+            }
+        };
+        
+        // DOM Elements
+        const loginPage = document.getElementById('loginPage');
+        const appContainer = document.getElementById('appContainer');
+        const loginForm = document.getElementById('loginForm');
+        const usernameInput = document.getElementById('username');
+        const passwordInput = document.getElementById('password');
+        const roleSelect = document.getElementById('role');
+        const languageToggle = document.getElementById('languageToggle');
+        const languageText = document.getElementById('languageText');
+        const logoutLink = document.getElementById('logoutLink');
+        const usernameDisplay = document.getElementById('usernameDisplay');
+        const userRoleDisplay = document.getElementById('userRoleDisplay');
+        const topUsernameDisplay = document.getElementById('topUsernameDisplay');
+        const userEmail = document.getElementById('userEmail');
+        const dashboardLink = document.getElementById('dashboardLink');
+        const createTicketLink = document.getElementById('createTicketLink');
+        const myTicketsLink = document.getElementById('myTicketsLink');
+        const allTicketsLink = document.getElementById('allTicketsLink');
+        const userManagementLink = document.getElementById('userManagementLink');
+        const changePasswordLink = document.getElementById('changePasswordLink');
+        const dashboardContent = document.getElementById('dashboardContent');
+        const createTicketContent = document.getElementById('createTicketContent');
+        const myTicketsContent = document.getElementById('myTicketsContent');
+        const allTicketsContent = document.getElementById('allTicketsContent');
+        const userManagementContent = document.getElementById('userManagementContent');
+        const ticketDetailContent = document.getElementById('ticketDetailContent');
+        const createTicketNav = document.getElementById('createTicketNav');
+        const allTicketsNav = document.getElementById('allTicketsNav');
+        const userManagementNav = document.getElementById('userManagementNav');
+        const pageTitle = document.getElementById('pageTitle');
+        const pageSubtitle = document.getElementById('pageSubtitle');
+        const createTicketForm = document.getElementById('createTicketForm');
+        const cancelCreateTicket = document.getElementById('cancelCreateTicket');
+        const simulateUpload = document.getElementById('simulateUpload');
+        const attachmentPreview = document.getElementById('attachmentPreview');
+        const removeAttachment = document.getElementById('removeAttachment');
+        const assignToField = document.getElementById('assignToField');
+        const assignToSelect = document.getElementById('assignTo');
+        const recentTicketsList = document.getElementById('recentTicketsList');
+        const myTicketsList = document.getElementById('myTicketsList');
+        const allTicketsTableBody = document.getElementById('allTicketsTableBody');
+        const userManagementTableBody = document.getElementById('userManagementTableBody');
+        const searchMyTickets = document.getElementById('searchMyTickets');
+        const filterMyTickets = document.getElementById('filterMyTickets');
+        const searchAllTickets = document.getElementById('searchAllTickets');
+        const filterAllTickets = document.getElementById('filterAllTickets');
+        const totalTickets = document.getElementById('totalTickets');
+        const inProgressTickets = document.getElementById('inProgressTickets');
+        const completedTickets = document.getElementById('completedTickets');
+        const notificationButton = document.getElementById('notificationButton');
+        const notificationPanel = document.getElementById('notificationPanel');
+        const closeNotificationPanel = document.getElementById('closeNotificationPanel');
+        const notificationOverlay = document.getElementById('notificationOverlay');
+        const notificationList = document.getElementById('notificationList');
+        const notificationCount = document.getElementById('notificationCount');
+        const mobileMenuButton = document.getElementById('mobileMenuButton');
+        const sidebar = document.getElementById('sidebar');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
+        const toastNotification = document.getElementById('toastNotification');
+        const toastMessage = document.getElementById('toastMessage');
+        const changePasswordModal = document.getElementById('changePasswordModal');
+        const changePasswordModalOverlay = document.getElementById('changePasswordModalOverlay');
+        const closeChangePasswordModal = document.getElementById('closeChangePasswordModal');
+        const cancelChangePassword = document.getElementById('cancelChangePassword');
+        const changePasswordForm = document.getElementById('changePasswordForm');
+        const createAdminButton = document.getElementById('createAdminButton');
+        const createAdminModal = document.getElementById('createAdminModal');
+        const createAdminModalOverlay = document.getElementById('createAdminModalOverlay');
+        const closeCreateAdminModal = document.getElementById('closeCreateAdminModal');
+        const cancelCreateAdmin = document.getElementById('cancelCreateAdmin');
+        const createAdminForm = document.getElementById('createAdminForm');
+        const createSupportEngineerBtn = document.getElementById('createSupportEngineerBtn');
+        const loginDateTime = document.getElementById('loginDateTime');
+        const sidebarDateTime = document.getElementById('sidebarDateTime');
+        const headerDateTime = document.getElementById('headerDateTime');
+        const footerDateTime = document.getElementById('footerDateTime');
+        
+        // Initialize the application
+        function init() {
+            loadDataFromStorage();
+            setupEventListeners();
+            updateLanguageUI();
+            updateDateTime();
+            
+            // Set initial language
+            state.currentLanguage = localStorage.getItem('edc-language') || 'en';
+            languageText.textContent = state.currentLanguage === 'en' ? 'বাংলা' : 'English';
+            updateLanguageUI();
+            
+            // Update date time every second
+            setInterval(updateDateTime, 1000);
+        }
+        
+        // Update date and time displays
+        function updateDateTime() {
+            const now = new Date();
+            const options = { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: true
+            };
+            
+            const dateTimeStr = now.toLocaleDateString(state.currentLanguage === 'en' ? 'en-US' : 'bn-BD', options);
+            
+            if (loginDateTime) loginDateTime.textContent = dateTimeStr;
+            if (sidebarDateTime) sidebarDateTime.textContent = dateTimeStr;
+            if (headerDateTime) headerDateTime.textContent = dateTimeStr;
+            if (footerDateTime) footerDateTime.textContent = dateTimeStr;
+        }
+        
+        // Load data from localStorage
+        function loadDataFromStorage() {
+            const savedTickets = localStorage.getItem('edc-tickets');
+            const savedNotifications = localStorage.getItem('edc-notifications');
+            const savedNextId = localStorage.getItem('edc-next-ticket-id');
+            const savedUsers = localStorage.getItem('edc-users');
+            const savedNextUserId = localStorage.getItem('edc-next-user-id');
+            
+            if (savedTickets) {
+                state.tickets = JSON.parse(savedTickets);
+            }
+            
+            if (savedNotifications) {
+                state.notifications = JSON.parse(savedNotifications);
+            }
+            
+            if (savedNextId) {
+                state.nextTicketId = parseInt(savedNextId);
+            }
+            
+            if (savedUsers) {
+                state.users = JSON.parse(savedUsers);
+            }
+            
+            if (savedNextUserId) {
+                state.nextUserId = parseInt(savedNextUserId);
+            }
+            
+            // Add some sample tickets if none exist
+            if (state.tickets.length === 0) {
+                createSampleTickets();
+            }
+            
+            updateNotificationCount();
+        }
+        
+        // Create sample tickets for demo
+        function createSampleTickets() {
+            const sampleTickets = [
+                {
+                    id: 1,
+                    title: 'Server Connectivity Issue',
+                    description: 'The main server is experiencing connectivity issues with the database. Need immediate attention.',
+                    priority: 'high',
+                    status: 'in-progress',
+                    createdBy: 'admin',
+                    assignedTo: 'user1',
+                    createdAt: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
+                    updatedAt: new Date().toISOString(),
+                    comments: [
+                        {
+                            id: 1,
+                            user: 'admin',
+                            text: 'Please investigate this issue as soon as possible.',
+                            timestamp: new Date(Date.now() - 86400000).toISOString()
+                        },
+                        {
+                            id: 2,
+                            user: 'user1',
+                            text: 'I\'m looking into it. It seems to be a network configuration problem.',
+                            timestamp: new Date(Date.now() - 43200000).toISOString() // 12 hours ago
+                        }
+                    ],
+                    attachments: ['server_logs.pdf']
+                },
+                {
+                    id: 2,
+                    title: 'User Interface Bug',
+                    description: 'The submit button on the registration form is not working on mobile devices.',
+                    priority: 'medium',
+                    status: 'pending',
+                    createdBy: 'admin',
+                    assignedTo: 'user2',
+                    createdAt: new Date(Date.now() - 172800000).toISOString(), // 2 days ago
+                    updatedAt: new Date(Date.now() - 172800000).toISOString(),
+                    comments: [
+                        {
+                            id: 1,
+                            user: 'admin',
+                            text: 'This is affecting user registration on mobile.',
+                            timestamp: new Date(Date.now() - 172800000).toISOString()
+                        }
+                    ],
+                    attachments: []
+                },
+                {
+                    id: 3,
+                    title: 'Database Backup',
+                    description: 'Schedule regular database backups for the production server.',
+                    priority: 'low',
+                    status: 'completed',
+                    createdBy: 'admin',
+                    assignedTo: 'user3',
+                    createdAt: new Date(Date.now() - 259200000).toISOString(), // 3 days ago
+                    updatedAt: new Date(Date.now() - 86400000).toISOString(),
+                    comments: [
+                        {
+                            id: 1,
+                            user: 'admin',
+                            text: 'This needs to be done by end of week.',
+                            timestamp: new Date(Date.now() - 259200000).toISOString()
+                        },
+                        {
+                            id: 2,
+                            user: 'user3',
+                            text: 'Backup scheduled successfully. Running daily at 2 AM.',
+                            timestamp: new Date(Date.now() - 86400000).toISOString()
+                        }
+                    ],
+                    attachments: ['backup_schedule.docx']
+                }
+            ];
+            
+            state.tickets = sampleTickets;
+            state.nextTicketId = 4;
+            saveDataToStorage();
+        }
+        
+        // Save data to localStorage
+        function saveDataToStorage() {
+            localStorage.setItem('edc-tickets', JSON.stringify(state.tickets));
+            localStorage.setItem('edc-notifications', JSON.stringify(state.notifications));
+            localStorage.setItem('edc-next-ticket-id', state.nextTicketId.toString());
+            localStorage.setItem('edc-users', JSON.stringify(state.users));
+            localStorage.setItem('edc-next-user-id', state.nextUserId.toString());
+        }
+        
+        // Setup event listeners
+        function setupEventListeners() {
+            // Login form
+            loginForm.addEventListener('submit', handleLogin);
+            
+            // Language toggle
+            languageToggle.addEventListener('click', toggleLanguage);
+            
+            // Logout
+            logoutLink.addEventListener('click', handleLogout);
+            
+            // Navigation
+            dashboardLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                showDashboard();
+                closeMobileMenu();
+            });
+            
+            createTicketLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                showCreateTicket();
+                closeMobileMenu();
+            });
+            
+            myTicketsLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                showMyTickets();
+                closeMobileMenu();
+            });
+            
+            allTicketsLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                showAllTickets();
+                closeMobileMenu();
+            });
+            
+            userManagementLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                showUserManagement();
+                closeMobileMenu();
+            });
+            
+            changePasswordLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                showChangePasswordModal();
+                closeMobileMenu();
+            });
+            
+            // Create ticket form
+            createTicketForm.addEventListener('submit', handleCreateTicket);
+            cancelCreateTicket.addEventListener('click', showDashboard);
+            
+            // Simulate file upload
+            simulateUpload.addEventListener('click', () => {
+                const fileName = `document_${Date.now()}.pdf`;
+                const fileSize = `${Math.floor(Math.random() * 5) + 1}.${Math.floor(Math.random() * 9)} MB`;
+                
+                document.getElementById('fileName').textContent = fileName;
+                document.getElementById('fileSize').textContent = fileSize;
+                attachmentPreview.classList.remove('hidden');
+            });
+            
+            removeAttachment.addEventListener('click', () => {
+                attachmentPreview.classList.add('hidden');
+            });
+            
+            // Search and filter
+            searchMyTickets.addEventListener('input', filterMyTicketsList);
+            filterMyTickets.addEventListener('change', filterMyTicketsList);
+            searchAllTickets.addEventListener('input', filterAllTicketsList);
+            filterAllTickets.addEventListener('change', filterAllTicketsList);
+            
+            // Notifications
+            notificationButton.addEventListener('click', toggleNotificationPanel);
+            closeNotificationPanel.addEventListener('click', toggleNotificationPanel);
+            notificationOverlay.addEventListener('click', toggleNotificationPanel);
+            
+            // Mobile menu
+            mobileMenuButton.addEventListener('click', toggleMobileMenu);
+            sidebarOverlay.addEventListener('click', closeMobileMenu);
+            
+            // Change password modal
+            changePasswordModalOverlay.addEventListener('click', hideChangePasswordModal);
+            closeChangePasswordModal.addEventListener('click', hideChangePasswordModal);
+            cancelChangePassword.addEventListener('click', hideChangePasswordModal);
+            changePasswordForm.addEventListener('submit', handleChangePassword);
+            
+            // Create admin
+            createAdminButton.addEventListener('click', showCreateAdminModal);
+            createAdminModalOverlay.addEventListener('click', hideCreateAdminModal);
+            closeCreateAdminModal.addEventListener('click', hideCreateAdminModal);
+            cancelCreateAdmin.addEventListener('click', hideCreateAdminModal);
+            createAdminForm.addEventListener('submit', handleCreateAdmin);
+            
+            // Create support engineer
+            createSupportEngineerBtn.addEventListener('click', handleCreateSupportEngineer);
+        }
+        
+        // Show toast notification
+        function showToast(message, duration = 10000) {
+            toastMessage.textContent = message;
+            toastNotification.classList.add('toast-show');
+            
+            setTimeout(() => {
+                toastNotification.classList.remove('toast-show');
+            }, duration);
+        }
+        
+        // Handle login
+        function handleLogin(e) {
+            e.preventDefault();
+            
+            const username = usernameInput.value.trim();
+            const password = passwordInput.value;
+            const role = roleSelect.value;
+            
+            // Find user
+            const user = state.users.find(u => 
+                u.username === username && 
+                u.password === password && 
+                u.role === role &&
+                u.active === true
+            );
+            
+            if (user) {
+                state.currentUser = {
+                    id: user.id,
+                    username: user.username,
+                    email: user.email,
+                    role: user.role
+                };
+                
+                // Update UI
+                usernameDisplay.textContent = user.username;
+                topUsernameDisplay.textContent = user.username;
+                userEmail.textContent = user.email;
+                userRoleDisplay.textContent = user.role === 'senior' ? 
+                    (state.currentLanguage === 'en' ? 'EDC Ticket System - Senior Engineer' : 'ইডিসি টিকিট ব্যবস্থা - সিনিয়র ইঞ্জিনিয়ার') :
+                    (state.currentLanguage === 'en' ? 'EDC Ticket System - Support Engineer' : 'ইডিসি টিকিট ব্যবস্থা - সাপোর্ট ইঞ্জিনিয়ার');
+                
+                // Show/hide admin features
+                if (user.role === 'senior') {
+                    createTicketNav.classList.remove('hidden');
+                    allTicketsNav.classList.remove('hidden');
+                    userManagementNav.classList.remove('hidden');
+                    createAdminButton.classList.remove('hidden');
+                    assignToField.classList.remove('hidden');
+                } else {
+                    createTicketNav.classList.add('hidden');
+                    allTicketsNav.classList.add('hidden');
+                    userManagementNav.classList.add('hidden');
+                    createAdminButton.classList.add('hidden');
+                    assignToField.classList.add('hidden');
+                }
+                
+                // Switch to app
+                loginPage.classList.add('hidden');
+                appContainer.classList.remove('hidden');
+                
+                // Show dashboard
+                showDashboard();
+                
+                // Show toast notification
+                showToast(
+                    state.currentLanguage === 'en' ? 
+                        `Welcome back, ${user.username}!` : 
+                        `স্বাগতম, ${user.username}!`
+                );
+                
+                // Add a login notification
+                addNotification(
+                    'success',
+                    translations[state.currentLanguage]['Login successful'],
+                    translations[state.currentLanguage]['Welcome back']
+                );
+            } else {
+                alert(state.currentLanguage === 'en' ? 
+                    'Invalid credentials. Use demo credentials.' : 
+                    'ভুল প্রমাণপত্র। ডেমো প্রমাণপত্র ব্যবহার করুন।');
+            }
+        }
+        
+        // Handle logout
+        function handleLogout(e) {
+            e.preventDefault();
+            
+            state.currentUser = null;
+            appContainer.classList.add('hidden');
+            loginPage.classList.remove('hidden');
+            closeMobileMenu();
+            
+            // Clear form
+            loginForm.reset();
+        }
+        
+        // Toggle language
+        function toggleLanguage() {
+            state.currentLanguage = state.currentLanguage === 'en' ? 'bn' : 'en';
+            languageText.textContent = state.currentLanguage === 'en' ? 'বাংলা' : 'English';
+            localStorage.setItem('edc-language', state.currentLanguage);
+            updateLanguageUI();
+        }
+        
+        // Update all UI elements with current language
+        function updateLanguageUI() {
+            // Update all elements with data-en and data-bn attributes
+            document.querySelectorAll('[data-en]').forEach(element => {
+                const key = element.getAttribute('data-en');
+                if (translations[state.currentLanguage][key]) {
+                    if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
+                        element.placeholder = translations[state.currentLanguage][key];
+                    } else {
+                        element.textContent = translations[state.currentLanguage][key];
+                    }
+                }
+            });
+            
+            // Update app title
+            document.title = state.currentLanguage === 'en' ? 
+                'HM Communication - EDC Ticket System' : 
+                'এইচএম কমিউনিকেশন - ইডিসি টিকিট ব্যবস্থা';
+            
+            // Update Bengali font class
+            if (state.currentLanguage === 'bn') {
+                document.body.classList.add('bengali-font');
+            } else {
+                document.body.classList.remove('bengali-font');
+            }
+            
+            // Update date time
+            updateDateTime();
+            
+            // Refresh current view
+            if (state.currentUser) {
+                if (dashboardContent.classList.contains('hidden') === false) {
+                    showDashboard();
+                } else if (createTicketContent.classList.contains('hidden') === false) {
+                    showCreateTicket();
+                } else if (myTicketsContent.classList.contains('hidden') === false) {
+                    showMyTickets();
+                } else if (allTicketsContent.classList.contains('hidden') === false) {
+                    showAllTickets();
+                } else if (userManagementContent.classList.contains('hidden') === false) {
+                    showUserManagement();
+                } else if (ticketDetailContent.classList.contains('hidden') === false) {
+                    const ticketId = parseInt(ticketDetailContent.getAttribute('data-ticket-id'));
+                    showTicketDetail(ticketId);
+                }
+            }
+        }
+        
+        // Show dashboard
+        function showDashboard() {
+            hideAllContent();
+            dashboardContent.classList.remove('hidden');
+            pageTitle.textContent = translations[state.currentLanguage]['Dashboard'];
+            pageSubtitle.textContent = translations[state.currentLanguage]['Welcome to HM Communication Ticket System'];
+            
+            // Update dashboard stats
+            updateDashboardStats();
+            
+            // Load recent tickets
+            loadRecentTickets();
+        }
+        
+        // Update dashboard statistics
+        function updateDashboardStats() {
+            const total = state.tickets.length;
+            const inProgress = state.tickets.filter(ticket => ticket.status === 'in-progress').length;
+            const completed = state.tickets.filter(ticket => ticket.status === 'completed').length;
+            
+            totalTickets.textContent = total;
+            inProgressTickets.textContent = inProgress;
+            completedTickets.textContent = completed;
+        }
+        
+        // Load recent tickets for dashboard
+        function loadRecentTickets() {
+            // Get recent tickets (max 5)
+            const recentTickets = [...state.tickets]
+                .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+                .slice(0, 5);
+            
+            recentTicketsList.innerHTML = '';
+            
+            if (recentTickets.length === 0) {
+                recentTicketsList.innerHTML = `
+                    <div class="text-center py-8 text-gray-500">
+                        ${translations[state.currentLanguage]['No tickets found']}
+                    </div>
+                `;
+                return;
+            }
+            
+            recentTickets.forEach(ticket => {
+                const ticketElement = createTicketCard(ticket);
+                recentTicketsList.appendChild(ticketElement);
+            });
+            
+            // Add event listeners to view ticket buttons
+            setTimeout(() => {
+                document.querySelectorAll('.view-ticket-btn').forEach(button => {
+                    button.addEventListener('click', function() {
+                        const ticketId = parseInt(this.getAttribute('data-ticket-id'));
+                        showTicketDetail(ticketId);
+                    });
+                });
+            }, 100);
+        }
+        
+        // Create ticket card element
+        function createTicketCard(ticket) {
+            const priorityClass = `priority-${ticket.priority}`;
+            const statusClass = `status-${ticket.status}`;
+            
+            // Format date
+            const createdDate = new Date(ticket.createdAt).toLocaleDateString(
+                state.currentLanguage === 'en' ? 'en-US' : 'bn-BD',
+                { month: 'short', day: 'numeric' }
+            );
+            
+            // Get assigned engineer name
+            const assignedUser = state.users.find(u => u.id === ticket.assignedTo);
+            const assignedName = assignedUser ? assignedUser.username : ticket.assignedTo;
+            
+            const ticketCard = document.createElement('div');
+            ticketCard.className = `ticket-card bg-white rounded-lg border border-gray-200 p-4 ${priorityClass}`;
+            ticketCard.innerHTML = `
+                <div class="flex justify-between items-start">
+                    <div class="flex-1">
+                        <h4 class="font-semibold text-gray-800 mb-1">${ticket.title}</h4>
+                        <p class="text-gray-600 text-sm mb-3 line-clamp-2">${ticket.description.substring(0, 100)}${ticket.description.length > 100 ? '...' : ''}</p>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <span class="px-3 py-1 text-xs rounded-full ${statusClass}">
+                                ${translations[state.currentLanguage][ticket.status === 'in-progress' ? 'In Progress' : ticket.status]}
+                            </span>
+                            <span class="text-gray-500 text-sm">${translations[state.currentLanguage]['Assigned to']}: ${assignedName}</span>
+                            <span class="text-gray-500 text-sm">${createdDate}</span>
+                        </div>
+                    </div>
+                    <button class="view-ticket-btn text-blue-600 hover:text-blue-800 ml-2" data-ticket-id="${ticket.id}">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+            `;
+            
+            return ticketCard;
+        }
+        
+        // Show create ticket form
+        function showCreateTicket() {
+            hideAllContent();
+            createTicketContent.classList.remove('hidden');
+            pageTitle.textContent = translations[state.currentLanguage]['Create Ticket'];
+            pageSubtitle.textContent = '';
+            
+            // Reset form
+            createTicketForm.reset();
+            attachmentPreview.classList.add('hidden');
+            
+            // Load support engineers for assignment
+            loadSupportEngineers();
+        }
+        
+        // Load support engineers for assignment dropdown
+        function loadSupportEngineers() {
+            assignToSelect.innerHTML = '';
+            
+            const supportEngineers = state.users.filter(user => 
+                user.role === 'support' && 
+                user.active === true
+            );
+            
+            supportEngineers.forEach(engineer => {
+                const option = document.createElement('option');
+                option.value = engineer.id;
+                option.textContent = engineer.username;
+                assignToSelect.appendChild(option);
+            });
+        }
+        
+        // Handle create ticket form submission
+        function handleCreateTicket(e) {
+            e.preventDefault();
+            
+            const title = document.getElementById('ticketTitle').value.trim();
+            const description = document.getElementById('ticketDescription').value.trim();
+            const priority = document.getElementById('ticketPriority').value;
+            const assignedTo = document.getElementById('assignTo').value;
+            
+            if (!title || !description) {
+                alert(state.currentLanguage === 'en' ? 
+                    'Please fill in all required fields.' : 
+                    'দয়া করে সব প্রয়োজনীয় ক্ষেত্র পূরণ করুন।');
+                return;
+            }
+            
+            const newTicket = {
+                id: state.nextTicketId++,
+                title: title,
+                description: description,
+                priority: priority,
+                status: 'pending',
+                createdBy: state.currentUser.username,
+                assignedTo: assignedTo,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                comments: [],
+                attachments: []
+            };
+            
+            // Add attachment if simulated
+            if (!attachmentPreview.classList.contains('hidden')) {
+                newTicket.attachments.push(document.getElementById('fileName').textContent);
+            }
+            
+            state.tickets.push(newTicket);
+            saveDataToStorage();
+            
+            // Get assigned user
+            const assignedUser = state.users.find(u => u.id === assignedTo);
+            if (assignedUser) {
+                // Show toast notification
+                showToast(
+                    state.currentLanguage === 'en' ? 
+                        `New ticket assigned to ${assignedUser.username}` : 
+                        `নতুন টিকিট ${assignedUser.username}-এর কাছে অ্যাসাইন করা হয়েছে`
+                );
+                
+                // Add notification for assigned engineer
+                addNotification(
+                    'info',
+                    translations[state.currentLanguage]['New ticket assigned to you'],
+                    `${title} - ${translations[state.currentLanguage]['Ticket Created']}`
+                );
+            }
+            
+            // Show success message
+            alert(state.currentLanguage === 'en' ? 
+                'Ticket created successfully!' : 
+                'টিকিট সফলভাবে তৈরি হয়েছে!');
+            
+            // Go to dashboard
+            showDashboard();
+        }
+        
+        // Show my tickets
+        function showMyTickets() {
+            hideAllContent();
+            myTicketsContent.classList.remove('hidden');
+            pageTitle.textContent = translations[state.currentLanguage]['My Tickets'];
+            pageSubtitle.textContent = '';
+            
+            // Load my tickets
+            loadMyTickets();
+        }
+        
+        // Load my tickets
+        function loadMyTickets() {
+            const myTickets = state.tickets.filter(ticket => 
+                ticket.assignedTo === state.currentUser.id || 
+                ticket.createdBy === state.currentUser.username
+            );
+            
+            myTicketsList.innerHTML = '';
+            
+            if (myTickets.length === 0) {
+                myTicketsList.innerHTML = `
+                    <div class="text-center py-8 text-gray-500">
+                        ${translations[state.currentLanguage]['No tickets assigned to you']}
+                    </div>
+                `;
+                return;
+            }
+            
+            myTickets.forEach(ticket => {
+                const ticketElement = createTicketCard(ticket);
+                myTicketsList.appendChild(ticketElement);
+            });
+            
+            // Add event listeners to view ticket buttons
+            setTimeout(() => {
+                document.querySelectorAll('.view-ticket-btn').forEach(button => {
+                    button.addEventListener('click', function() {
+                        const ticketId = parseInt(this.getAttribute('data-ticket-id'));
+                        showTicketDetail(ticketId);
+                    });
+                });
+            }, 100);
+        }
+        
+        // Filter my tickets list
+        function filterMyTicketsList() {
+            const searchTerm = searchMyTickets.value.toLowerCase();
+            const filterValue = filterMyTickets.value;
+            
+            const filteredTickets = state.tickets.filter(ticket => {
+                const matchesSearch = ticket.title.toLowerCase().includes(searchTerm) || 
+                                     ticket.description.toLowerCase().includes(searchTerm);
+                const matchesFilter = filterValue === 'all' || ticket.status === filterValue;
+                const isMyTicket = ticket.assignedTo === state.currentUser.id || 
+                                   ticket.createdBy === state.currentUser.username;
+                
+                return matchesSearch && matchesFilter && isMyTicket;
+            });
+            
+            myTicketsList.innerHTML = '';
+            
+            if (filteredTickets.length === 0) {
+                myTicketsList.innerHTML = `
+                    <div class="text-center py-8 text-gray-500">
+                        ${translations[state.currentLanguage]['No tickets found']}
+                    </div>
+                `;
+                return;
+            }
+            
+            filteredTickets.forEach(ticket => {
+                const ticketElement = createTicketCard(ticket);
+                myTicketsList.appendChild(ticketElement);
+            });
+            
+            // Add event listeners to view ticket buttons
+            setTimeout(() => {
+                document.querySelectorAll('.view-ticket-btn').forEach(button => {
+                    button.addEventListener('click', function() {
+                        const ticketId = parseInt(this.getAttribute('data-ticket-id'));
+                        showTicketDetail(ticketId);
+                    });
+                });
+            }, 100);
+        }
+        
+        // Show all tickets (admin only)
+        function showAllTickets() {
+            hideAllContent();
+            allTicketsContent.classList.remove('hidden');
+            pageTitle.textContent = translations[state.currentLanguage]['All Tickets'];
+            pageSubtitle.textContent = '';
+            
+            // Load all tickets
+            loadAllTickets();
+        }
+        
+        // Load all tickets for admin view
+        function loadAllTickets() {
+            allTicketsTableBody.innerHTML = '';
+            
+            if (state.tickets.length === 0) {
+                allTicketsTableBody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="py-8 text-center text-gray-500">
+                            ${translations[state.currentLanguage]['No tickets found']}
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            state.tickets.forEach(ticket => {
+                const row = document.createElement('tr');
+                
+                // Format date
+                const createdDate = new Date(ticket.createdAt).toLocaleDateString(
+                    state.currentLanguage === 'en' ? 'en-US' : 'bn-BD',
+                    { month: 'short', day: 'numeric', year: 'numeric' }
+                );
+                
+                // Get assigned user name
+                const assignedUser = state.users.find(u => u.id === ticket.assignedTo);
+                const assignedName = assignedUser ? assignedUser.username : ticket.assignedTo;
+                
+                row.innerHTML = `
+                    <td class="py-3 px-4">#${ticket.id}</td>
+                    <td class="py-3 px-4 font-medium">${ticket.title}</td>
+                    <td class="py-3 px-4">
+                        <span class="px-2 py-1 text-xs rounded-full ${
+                            ticket.priority === 'high' ? 'bg-red-100 text-red-800' :
+                            ticket.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-green-100 text-green-800'
+                        }">
+                            ${translations[state.currentLanguage][ticket.priority === 'high' ? 'High' : 
+                              ticket.priority === 'medium' ? 'Medium' : 'Low']}
+                        </span>
+                    </td>
+                    <td class="py-3 px-4">
+                        <span class="px-2 py-1 text-xs rounded-full ${
+                            ticket.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                            ticket.status === 'in-progress' ? 'bg-blue-100 text-blue-800' :
+                            'bg-green-100 text-green-800'
+                        }">
+                            ${translations[state.currentLanguage][ticket.status === 'in-progress' ? 'In Progress' : ticket.status]}
+                        </span>
+                    </td>
+                    <td class="py-3 px-4">${assignedName}</td>
+                    <td class="py-3 px-4">${createdDate}</td>
+                    <td class="py-3 px-4">
+                        <button class="view-ticket-btn text-blue-600 hover:text-blue-800 mr-3" data-ticket-id="${ticket.id}">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        ${state.currentUser.role === 'senior' ? `
+                        <button class="edit-ticket-btn text-green-600 hover:text-green-800" data-ticket-id="${ticket.id}">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        ` : ''}
+                    </td>
+                `;
+                
+                allTicketsTableBody.appendChild(row);
+            });
+            
+            // Add event listeners to view ticket buttons
+            setTimeout(() => {
+                document.querySelectorAll('.view-ticket-btn').forEach(button => {
+                    button.addEventListener('click', function() {
+                        const ticketId = parseInt(this.getAttribute('data-ticket-id'));
+                        showTicketDetail(ticketId);
+                    });
+                });
+            }, 100);
+        }
+        
+        // Filter all tickets list
+        function filterAllTicketsList() {
+            const searchTerm = searchAllTickets.value.toLowerCase();
+            const filterValue = filterAllTickets.value;
+            
+            const filteredTickets = state.tickets.filter(ticket => {
+                const matchesSearch = ticket.title.toLowerCase().includes(searchTerm) || 
+                                     ticket.description.toLowerCase().includes(searchTerm);
+                const matchesFilter = filterValue === 'all' || ticket.status === filterValue;
+                
+                return matchesSearch && matchesFilter;
+            });
+            
+            allTicketsTableBody.innerHTML = '';
+            
+            if (filteredTickets.length === 0) {
+                allTicketsTableBody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="py-8 text-center text-gray-500">
+                            ${translations[state.currentLanguage]['No tickets found']}
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            filteredTickets.forEach(ticket => {
+                const row = document.createElement('tr');
+                
+                // Format date
+                const createdDate = new Date(ticket.createdAt).toLocaleDateString(
+                    state.currentLanguage === 'en' ? 'en-US' : 'bn-BD',
+                    { month: 'short', day: 'numeric', year: 'numeric' }
+                );
+                
+                // Get assigned user name
+                const assignedUser = state.users.find(u => u.id === ticket.assignedTo);
+                const assignedName = assignedUser ? assignedUser.username : ticket.assignedTo;
+                
+                row.innerHTML = `
+                    <td class="py-3 px-4">#${ticket.id}</td>
+                    <td class="py-3 px-4 font-medium">${ticket.title}</td>
+                    <td class="py-3 px-4">
+                        <span class="px-2 py-1 text-xs rounded-full ${
+                            ticket.priority === 'high' ? 'bg-red-100 text-red-800' :
+                            ticket.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-green-100 text-green-800'
+                        }">
+                            ${translations[state.currentLanguage][ticket.priority === 'high' ? 'High' : 
+                              ticket.priority === 'medium' ? 'Medium' : 'Low']}
+                        </span>
+                    </td>
+                    <td class="py-3 px-4">
+                        <span class="px-2 py-1 text-xs rounded-full ${
+                            ticket.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                            ticket.status === 'in-progress' ? 'bg-blue-100 text-blue-800' :
+                            'bg-green-100 text-green-800'
+                        }">
+                            ${translations[state.currentLanguage][ticket.status === 'in-progress' ? 'In Progress' : ticket.status]}
+                        </span>
+                    </td>
+                    <td class="py-3 px-4">${assignedName}</td>
+                    <td class="py-3 px-4">${createdDate}</td>
+                    <td class="py-3 px-4">
+                        <button class="view-ticket-btn text-blue-600 hover:text-blue-800 mr-3" data-ticket-id="${ticket.id}">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        ${state.currentUser.role === 'senior' ? `
+                        <button class="edit-ticket-btn text-green-600 hover:text-green-800" data-ticket-id="${ticket.id}">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        ` : ''}
+                    </td>
+                `;
+                
+                allTicketsTableBody.appendChild(row);
+            });
+            
+            // Add event listeners to view ticket buttons
+            setTimeout(() => {
+                document.querySelectorAll('.view-ticket-btn').forEach(button => {
+                    button.addEventListener('click', function() {
+                        const ticketId = parseInt(this.getAttribute('data-ticket-id'));
+                        showTicketDetail(ticketId);
+                    });
+                });
+            }, 100);
+        }
+        
+        // Show user management (admin only)
+        function showUserManagement() {
+            hideAllContent();
+            userManagementContent.classList.remove('hidden');
+            pageTitle.textContent = translations[state.currentLanguage]['User Management'];
+            pageSubtitle.textContent = '';
+            
+            // Load users
+            loadUsers();
+        }
+        
+        // Load users for user management
+        function loadUsers() {
+            userManagementTableBody.innerHTML = '';
+            
+            if (state.users.length === 0) {
+                userManagementTableBody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="py-8 text-center text-gray-500">
+                            ${translations[state.currentLanguage]['No users found']}
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            state.users.forEach(user => {
+                const row = document.createElement('tr');
+                
+                // Format date
+                const createdDate = new Date(user.createdAt).toLocaleDateString(
+                    state.currentLanguage === 'en' ? 'en-US' : 'bn-BD',
+                    { month: 'short', day: 'numeric', year: 'numeric' }
+                );
+                
+                row.innerHTML = `
+                    <td class="py-3 px-4">${user.id}</td>
+                    <td class="py-3 px-4 font-medium">${user.username}</td>
+                    <td class="py-3 px-4">${user.email}</td>
+                    <td class="py-3 px-4">
+                        <span class="px-2 py-1 text-xs rounded-full ${
+                            user.role === 'senior' ? 'bg-purple-100 text-purple-800' :
+                            'bg-blue-100 text-blue-800'
+                        }">
+                            ${translations[state.currentLanguage][user.role === 'senior' ? 'Senior Engineer' : 'Support Engineer']}
+                        </span>
+                    </td>
+                    <td class="py-3 px-4">
+                        <span class="px-2 py-1 text-xs rounded-full ${
+                            user.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                        }">
+                            ${translations[state.currentLanguage][user.active ? 'Active' : 'Inactive']}
+                        </span>
+                    </td>
+                    <td class="py-3 px-4">${createdDate}</td>
+                    <td class="py-3 px-4">
+                        <button class="reset-password-btn text-blue-600 hover:text-blue-800 mr-3" data-user-id="${user.id}">
+                            <i class="fas fa-key"></i>
+                        </button>
+                        <button class="toggle-user-status-btn ${
+                            user.active ? 'text-red-600 hover:text-red-800' : 'text-green-600 hover:text-green-800'
+                        }" data-user-id="${user.id}">
+                            <i class="fas ${user.active ? 'fa-user-slash' : 'fa-user-check'}"></i>
+                        </button>
+                    </td>
+                `;
+                
+                userManagementTableBody.appendChild(row);
+            });
+            
+            // Add event listeners
+            setTimeout(() => {
+                document.querySelectorAll('.reset-password-btn').forEach(button => {
+                    button.addEventListener('click', function() {
+                        const userId = this.getAttribute('data-user-id');
+                        resetUserPassword(userId);
+                    });
+                });
+                
+                document.querySelectorAll('.toggle-user-status-btn').forEach(button => {
+                    button.addEventListener('click', function() {
+                        const userId = this.getAttribute('data-user-id');
+                        toggleUserStatus(userId);
+                    });
+                });
+            }, 100);
+        }
+        
+        // Show ticket detail
+        function showTicketDetail(ticketId) {
+            hideAllContent();
+            ticketDetailContent.classList.remove('hidden');
+            ticketDetailContent.setAttribute('data-ticket-id', ticketId);
+            
+            const ticket = state.tickets.find(t => t.id === ticketId);
+            if (!ticket) {
+                showDashboard();
+                return;
+            }
+            
+            // Format dates
+            const createdDate = new Date(ticket.createdAt).toLocaleDateString(
+                state.currentLanguage === 'en' ? 'en-US' : 'bn-BD',
+                { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }
+            );
+            
+            const updatedDate = new Date(ticket.updatedAt).toLocaleDateString(
+                state.currentLanguage === 'en' ? 'en-US' : 'bn-BD',
+                { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }
+            );
+            
+            // Get assigned user name
+            const assignedUser = state.users.find(u => u.id === ticket.assignedTo);
+            const assignedName = assignedUser ? assignedUser.username : ticket.assignedTo;
+            
+            // Get created by name
+            const createdByName = ticket.createdBy;
+            
+            // Generate ticket detail HTML
+            ticketDetailContent.innerHTML = `
+                <div class="bg-white rounded-xl shadow overflow-hidden">
+                    <div class="p-6 border-b border-gray-200">
+                        <div class="flex flex-col md:flex-row md:justify-between md:items-center space-y-4 md:space-y-0">
+                            <div>
+                                <button id="backToTickets" class="text-blue-600 hover:text-blue-800 mb-2 flex items-center">
+                                    <i class="fas fa-arrow-left mr-2"></i>
+                                    ${translations[state.currentLanguage]['Back to Tickets']}
+                                </button>
+                                <h3 class="text-lg font-semibold text-gray-800">${ticket.title}</h3>
+                                <div class="flex flex-wrap items-center gap-2 mt-2">
+                                    <span class="px-3 py-1 text-xs rounded-full ${
+                                        ticket.priority === 'high' ? 'bg-red-100 text-red-800' :
+                                        ticket.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                                        'bg-green-100 text-green-800'
+                                    }">
+                                        ${translations[state.currentLanguage][ticket.priority === 'high' ? 'High' : 
+                                          ticket.priority === 'medium' ? 'Medium' : 'Low']} ${translations[state.currentLanguage]['Priority']}
+                                    </span>
+                                    <span class="px-3 py-1 text-xs rounded-full ${
+                                        ticket.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                        ticket.status === 'in-progress' ? 'bg-blue-100 text-blue-800' :
+                                        'bg-green-100 text-green-800'
+                                    }">
+                                        ${translations[state.currentLanguage][ticket.status === 'in-progress' ? 'In Progress' : ticket.status]}
+                                    </span>
+                                    <span class="text-gray-500 text-sm">#${ticket.id}</span>
+                                </div>
+                            </div>
+                            ${state.currentUser.id === ticket.assignedTo || state.currentUser.role === 'senior' ? `
+                            <div class="flex space-x-3">
+                                ${ticket.status !== 'completed' ? `
+                                <button id="updateStatusBtn" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 whitespace-nowrap">
+                                    ${translations[state.currentLanguage]['Update Status']}
+                                </button>
+                                ` : ''}
+                            </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                    
+                    <div class="p-6">
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            <div class="lg:col-span-2">
+                                <div class="mb-6">
+                                    <h4 class="font-medium text-gray-700 mb-2">${translations[state.currentLanguage]['Description']}</h4>
+                                    <p class="text-gray-800 bg-gray-50 p-4 rounded-lg">${ticket.description}</p>
+                                </div>
+                                
+                                <div class="mb-6">
+                                    <h4 class="font-medium text-gray-700 mb-4">${translations[state.currentLanguage]['Comments']}</h4>
+                                    <div id="ticketComments" class="space-y-4 mb-6 max-h-96 overflow-y-auto p-2">
+                                        ${ticket.comments.length > 0 ? 
+                                            ticket.comments.map(comment => {
+                                                const commentDate = new Date(comment.timestamp).toLocaleDateString(
+                                                    state.currentLanguage === 'en' ? 'en-US' : 'bn-BD',
+                                                    { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }
+                                                );
+                                                const isCurrentUser = comment.user === state.currentUser.username;
+                                                return `
+                                                    <div class="flex ${isCurrentUser ? 'justify-end' : ''}">
+                                                        <div class="${isCurrentUser ? 'chat-message-user' : 'chat-message-other'} max-w-xs lg:max-w-md p-4">
+                                                            <div class="font-medium mb-1">${comment.user}</div>
+                                                            <p>${comment.text}</p>
+                                                            <div class="text-xs mt-2 ${isCurrentUser ? 'text-blue-100' : 'text-gray-500'}">${commentDate}</div>
+                                                        </div>
+                                                    </div>
+                                                `;
+                                            }).join('') : 
+                                            `<p class="text-gray-500 text-center py-4">${translations[state.currentLanguage]['No comments yet']}</p>`
+                                        }
+                                    </div>
+                                    
+                                    <div class="flex space-x-3">
+                                        <input type="text" id="newComment" class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="${translations[state.currentLanguage]['Type a message...']}">
+                                        <button id="addCommentBtn" class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 whitespace-nowrap">
+                                            ${translations[state.currentLanguage]['Send']}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <div class="bg-gray-50 rounded-lg p-5">
+                                    <h4 class="font-medium text-gray-700 mb-4">${translations[state.currentLanguage]['Ticket Details']}</h4>
+                                    
+                                    <div class="space-y-4">
+                                        <div>
+                                            <p class="text-sm text-gray-500">${translations[state.currentLanguage]['Assigned to']}</p>
+                                            <p class="font-medium">${assignedName}</p>
+                                        </div>
+                                        
+                                        <div>
+                                            <p class="text-sm text-gray-500">${translations[state.currentLanguage]['Created by']}</p>
+                                            <p class="font-medium">${createdByName}</p>
+                                        </div>
+                                        
+                                        <div>
+                                            <p class="text-sm text-gray-500">${translations[state.currentLanguage]['Created on']}</p>
+                                            <p class="font-medium">${createdDate}</p>
+                                        </div>
+                                        
+                                        <div>
+                                            <p class="text-sm text-gray-500">${translations[state.currentLanguage]['Last updated']}</p>
+                                            <p class="font-medium">${updatedDate}</p>
+                                        </div>
+                                        
+                                        <div>
+                                            <p class="text-sm text-gray-500 mb-2">${translations[state.currentLanguage]['Attachments']}</p>
+                                            ${ticket.attachments && ticket.attachments.length > 0 ? 
+                                                ticket.attachments.map(attachment => `
+                                                    <div class="flex items-center justify-between bg-white p-3 rounded-lg border border-gray-200 mb-2">
+                                                        <div class="flex items-center">
+                                                            <i class="fas fa-file text-gray-600 mr-3"></i>
+                                                            <span class="text-sm truncate">${attachment}</span>
+                                                        </div>
+                                                        <button class="text-blue-600 hover:text-blue-800">
+                                                            <i class="fas fa-download"></i>
+                                                        </button>
+                                                    </div>
+                                                `).join('') : 
+                                                `<p class="text-gray-500">${translations[state.currentLanguage]['No attachments']}</p>`
+                                            }
+                                            <button id="addAttachmentBtn" class="w-full mt-3 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 flex items-center justify-center whitespace-nowrap">
+                                                <i class="fas fa-paperclip mr-2"></i>
+                                                ${translations[state.currentLanguage]['Simulate File']}
+                                            </button>
+                                        </div>
+                                        
+                                        ${state.currentUser.id === ticket.assignedTo && ticket.status !== 'completed' ? `
+                                        <div class="pt-4 border-t border-gray-200">
+                                            <h5 class="font-medium text-gray-700 mb-3">${translations[state.currentLanguage]['Update Status']}</h5>
+                                            <div class="space-y-2">
+                                                ${ticket.status === 'pending' ? `
+                                                <button class="w-full text-left px-4 py-3 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 update-status-option" data-status="in-progress">
+                                                    <i class="fas fa-play-circle mr-2"></i>
+                                                    ${translations[state.currentLanguage]['Mark as In Progress']}
+                                                </button>
+                                                ` : ''}
+                                                
+                                                ${ticket.status === 'in-progress' ? `
+                                                <button class="w-full text-left px-4 py-3 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 update-status-option" data-status="completed">
+                                                    <i class="fas fa-check-circle mr-2"></i>
+                                                    ${translations[state.currentLanguage]['Mark as Completed']}
+                                                </button>
+                                                ` : ''}
+                                            </div>
+                                        </div>
+                                        ` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Set page title
+            pageTitle.textContent = `#${ticket.id} - ${ticket.title}`;
+            pageSubtitle.textContent = '';
+            
+            // Add event listeners
+            document.getElementById('backToTickets').addEventListener('click', () => {
+                if (state.currentUser.role === 'senior') {
+                    showAllTickets();
+                } else {
+                    showMyTickets();
+                }
+            });
+            
+            // Add comment
+            const addCommentBtn = document.getElementById('addCommentBtn');
+            const newCommentInput = document.getElementById('newComment');
+            
+            if (addCommentBtn) {
+                addCommentBtn.addEventListener('click', () => {
+                    const commentText = newCommentInput.value.trim();
+                    if (commentText) {
+                        addCommentToTicket(ticketId, commentText);
+                        newCommentInput.value = '';
+                    }
+                });
+                
+                newCommentInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        const commentText = newCommentInput.value.trim();
+                        if (commentText) {
+                            addCommentToTicket(ticketId, commentText);
+                            newCommentInput.value = '';
+                        }
+                    }
+                });
+            }
+            
+            // Update status
+            document.querySelectorAll('.update-status-option').forEach(button => {
+                button.addEventListener('click', function() {
+                    const newStatus = this.getAttribute('data-status');
+                    updateTicketStatus(ticketId, newStatus);
+                });
+            });
+            
+            // Update status button
+            const updateStatusBtn = document.getElementById('updateStatusBtn');
+            if (updateStatusBtn) {
+                updateStatusBtn.addEventListener('click', () => {
+                    // Show status update options
+                    const statusOptions = document.querySelector('.update-status-options');
+                    if (statusOptions) {
+                        statusOptions.classList.toggle('hidden');
+                    }
+                });
+            }
+            
+            // Add attachment
+            const addAttachmentBtn = document.getElementById('addAttachmentBtn');
+            if (addAttachmentBtn) {
+                addAttachmentBtn.addEventListener('click', () => {
+                    const fileName = `attachment_${Date.now()}.pdf`;
+                    ticket.attachments.push(fileName);
+                    saveDataToStorage();
+                    
+                    // Refresh ticket detail
+                    showTicketDetail(ticketId);
+                    
+                    // Add notification
+                    addNotification(
+                        'info',
+                        translations[state.currentLanguage]['Ticket Updated'],
+                        `${translations[state.currentLanguage]['New attachment added to ticket']} #${ticketId}`
+                    );
+                });
+            }
+        }
+        
+        // Add comment to ticket
+        function addCommentToTicket(ticketId, commentText) {
+            const ticket = state.tickets.find(t => t.id === ticketId);
+            if (!ticket) return;
+            
+            const newComment = {
+                id: ticket.comments.length + 1,
+                user: state.currentUser.username,
+                text: commentText,
+                timestamp: new Date().toISOString()
+            };
+            
+            ticket.comments.push(newComment);
+            ticket.updatedAt = new Date().toISOString();
+            saveDataToStorage();
+            
+            // Refresh ticket detail
+            showTicketDetail(ticketId);
+            
+            // Add notification
+            addNotification(
+                'info',
+                translations[state.currentLanguage]['New Comment'],
+                `${translations[state.currentLanguage]['New comment on ticket']} #${ticketId}`
+            );
+            
+            // Show toast notification
+            showToast(
+                state.currentLanguage === 'en' ? 
+                    'Comment added successfully' : 
+                    'মন্তব্য সফলভাবে যোগ করা হয়েছে'
+            );
+        }
+        
+        // Update ticket status
+        function updateTicketStatus(ticketId, newStatus) {
+            const ticket = state.tickets.find(t => t.id === ticketId);
+            if (!ticket) return;
+            
+            const oldStatus = ticket.status;
+            ticket.status = newStatus;
+            ticket.updatedAt = new Date().toISOString();
+            saveDataToStorage();
+            
+            // Refresh ticket detail
+            showTicketDetail(ticketId);
+            
+            // Add notification
+            addNotification(
+                'info',
+                translations[state.currentLanguage]['Ticket Updated'],
+                `${translations[state.currentLanguage]['Ticket status updated']} #${ticketId}: ${oldStatus} → ${newStatus}`
+            );
+            
+            // Show toast notification
+            showToast(
+                state.currentLanguage === 'en' ? 
+                    `Ticket status updated to ${newStatus}` : 
+                    `টিকিটের অবস্থা ${newStatus} তে আপডেট করা হয়েছে`
+            );
+        }
+        
+        // Hide all content sections
+        function hideAllContent() {
+            dashboardContent.classList.add('hidden');
+            createTicketContent.classList.add('hidden');
+            myTicketsContent.classList.add('hidden');
+            allTicketsContent.classList.add('hidden');
+            userManagementContent.classList.add('hidden');
+            ticketDetailContent.classList.add('hidden');
+        }
+        
+        // Add notification
+        function addNotification(type, title, message) {
+            const notification = {
+                id: state.nextNotificationId++,
+                type: type,
+                title: title,
+                message: message,
+                timestamp: new Date().toISOString(),
+                read: false
+            };
+            
+            state.notifications.unshift(notification);
+            saveDataToStorage();
+            updateNotificationCount();
+            loadNotifications();
+        }
+        
+        // Update notification count
+        function updateNotificationCount() {
+            const unreadCount = state.notifications.filter(n => !n.read).length;
+            if (unreadCount > 0) {
+                notificationCount.textContent = unreadCount;
+                notificationCount.classList.remove('hidden');
+            } else {
+                notificationCount.classList.add('hidden');
+            }
+        }
+        
+        // Load notifications
+        function loadNotifications() {
+            notificationList.innerHTML = '';
+            
+            if (state.notifications.length === 0) {
+                notificationList.innerHTML = `
+                    <div class="text-center py-8 text-gray-500">
+                        ${translations[state.currentLanguage]['No notifications']}
+                    </div>
+                `;
+                return;
+            }
+            
+            state.notifications.forEach(notification => {
+                const notificationElement = document.createElement('div');
+                notificationElement.className = `p-4 rounded-lg border-l-4 ${
+                    notification.type === 'success' ? 'border-green-500 bg-green-50' :
+                    notification.type === 'error' ? 'border-red-500 bg-red-50' :
+                    'border-blue-500 bg-blue-50'
+                }`;
+                
+                const date = new Date(notification.timestamp).toLocaleDateString(
+                    state.currentLanguage === 'en' ? 'en-US' : 'bn-BD',
+                    { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }
+                );
+                
+                notificationElement.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h4 class="font-medium text-gray-800">${notification.title}</h4>
+                            <p class="text-gray-600 text-sm mt-1">${notification.message}</p>
+                            <p class="text-gray-400 text-xs mt-2">${date}</p>
+                        </div>
+                        ${!notification.read ? `
+                        <button class="mark-read-btn text-gray-400 hover:text-gray-600" data-notification-id="${notification.id}">
+                            <i class="fas fa-circle text-xs"></i>
+                        </button>
+                        ` : ''}
+                    </div>
+                `;
+                
+                notificationList.appendChild(notificationElement);
+            });
+            
+            // Add event listeners to mark as read buttons
+            setTimeout(() => {
+                document.querySelectorAll('.mark-read-btn').forEach(button => {
+                    button.addEventListener('click', function() {
+                        const notificationId = parseInt(this.getAttribute('data-notification-id'));
+                        markNotificationAsRead(notificationId);
+                    });
+                });
+            }, 100);
+        }
+        
+        // Mark notification as read
+        function markNotificationAsRead(notificationId) {
+            const notification = state.notifications.find(n => n.id === notificationId);
+            if (notification) {
+                notification.read = true;
+                saveDataToStorage();
+                updateNotificationCount();
+                loadNotifications();
+            }
+        }
+        
+        // Toggle notification panel
+        function toggleNotificationPanel() {
+            if (notificationPanel.classList.contains('notification-panel-open')) {
+                notificationPanel.classList.remove('notification-panel-open');
+                notificationOverlay.classList.add('hidden');
+            } else {
+                notificationPanel.classList.add('notification-panel-open');
+                notificationOverlay.classList.remove('hidden');
+                loadNotifications();
+            }
+        }
+        
+        // Toggle mobile menu
+        function toggleMobileMenu() {
+            sidebar.classList.toggle('sidebar-open');
+            sidebarOverlay.classList.toggle('sidebar-overlay-active');
+        }
+        
+        // Close mobile menu
+        function closeMobileMenu() {
+            sidebar.classList.remove('sidebar-open');
+            sidebarOverlay.classList.remove('sidebar-overlay-active');
+        }
+        
+        // Show change password modal
+        function showChangePasswordModal() {
+            changePasswordModal.classList.add('active');
+            changePasswordModalOverlay.classList.add('active');
+            changePasswordForm.reset();
+        }
+        
+        // Hide change password modal
+        function hideChangePasswordModal() {
+            changePasswordModal.classList.remove('active');
+            changePasswordModalOverlay.classList.remove('active');
+        }
+        
+        // Handle change password
+        function handleChangePassword(e) {
+            e.preventDefault();
+            
+            const currentPassword = document.getElementById('currentPassword').value;
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            
+            // Find current user
+            const user = state.users.find(u => u.id === state.currentUser.id);
+            
+            if (!user) {
+                alert('User not found');
+                return;
+            }
+            
+            // Check current password
+            if (user.password !== currentPassword) {
+                alert(translations[state.currentLanguage]['Incorrect current password']);
+                return;
+            }
+            
+            // Check if new passwords match
+            if (newPassword !== confirmPassword) {
+                alert(translations[state.currentLanguage]['Passwords do not match']);
+                return;
+            }
+            
+            // Update password
+            user.password = newPassword;
+            saveDataToStorage();
+            
+            // Hide modal
+            hideChangePasswordModal();
+            
+            // Show success message
+            alert(translations[state.currentLanguage]['Password changed successfully']);
+            
+            // Show toast notification
+            showToast(translations[state.currentLanguage]['Password changed successfully']);
+        }
+        
+        // Show create admin modal
+        function showCreateAdminModal() {
+            createAdminModal.classList.add('active');
+            createAdminModalOverlay.classList.add('active');
+            createAdminForm.reset();
+        }
+        
+        // Hide create admin modal
+        function hideCreateAdminModal() {
+            createAdminModal.classList.remove('active');
+            createAdminModalOverlay.classList.remove('active');
+        }
+        
+        // Handle create admin
+        function handleCreateAdmin(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('adminUsername').value.trim();
+            const email = document.getElementById('adminEmail').value.trim();
+            const password = document.getElementById('adminPassword').value;
+            
+            // Check if username already exists
+            if (state.users.some(u => u.username === username)) {
+                alert(state.currentLanguage === 'en' ? 
+                    'Username already exists' : 
+                    'ব্যবহারকারীর নাম ইতিমধ্যেই রয়েছে');
+                return;
+            }
+            
+            // Create new admin user
+            const newAdmin = {
+                id: `admin_${state.nextUserId++}`,
+                username: username,
+                email: email,
+                password: password,
+                role: 'senior',
+                createdAt: new Date().toISOString(),
+                active: true
+            };
+            
+            state.users.push(newAdmin);
+            saveDataToStorage();
+            
+            // Hide modal
+            hideCreateAdminModal();
+            
+            // Show success message
+            alert(translations[state.currentLanguage]['Admin created successfully']);
+            
+            // Show toast notification
+            showToast(translations[state.currentLanguage]['Admin created successfully']);
+            
+            // Add notification
+            addNotification(
+                'success',
+                translations[state.currentLanguage]['New user created'],
+                `${translations[state.currentLanguage]['Admin created successfully']}: ${username}`
+            );
+        }
+        
+        // Handle create support engineer
+        function handleCreateSupportEngineer() {
+            const username = prompt(state.currentLanguage === 'en' ? 
+                'Enter username for new Support Engineer:' : 
+                'নতুন সাপোর্ট ইঞ্জিনিয়ারের জন্য ব্যবহারকারীর নাম লিখুন:');
+            
+            if (!username) return;
+            
+            // Check if username already exists
+            if (state.users.some(u => u.username === username)) {
+                alert(state.currentLanguage === 'en' ? 
+                    'Username already exists' : 
+                    'ব্যবহারকারীর নাম ইতিমধ্যেই রয়েছে');
+                return;
+            }
+            
+            const email = `${username}@hmcommunication.com`;
+            const password = 'password123'; // Default password
+            
+            // Create new support engineer
+            const newSupportEngineer = {
+                id: `user${state.nextUserId++}`,
+                username: username,
+                email: email,
+                password: password,
+                role: 'support',
+                createdAt: new Date().toISOString(),
+                active: true
+            };
+            
+            state.users.push(newSupportEngineer);
+            saveDataToStorage();
+            
+            // Refresh user management
+            loadUsers();
+            
+            // Show success message
+            alert(translations[state.currentLanguage]['User created successfully']);
+            
+            // Show toast notification
+            showToast(translations[state.currentLanguage]['User created successfully']);
+            
+            // Add notification
+            addNotification(
+                'success',
+                translations[state.currentLanguage]['New user created'],
+                `${translations[state.currentLanguage]['Support Engineer created']}: ${username}`
+            );
+        }
+        
+        // Reset user password
+        function resetUserPassword(userId) {
+            const user = state.users.find(u => u.id === userId);
+            if (!user) return;
+            
+            const newPassword = prompt(state.currentLanguage === 'en' ? 
+                `Enter new password for ${user.username}:` : 
+                `${user.username}-এর জন্য নতুন পাসওয়ার্ড লিখুন:`);
+            
+            if (!newPassword) return;
+            
+            if (newPassword.length < 6) {
+                alert(state.currentLanguage === 'en' ? 
+                    'Password must be at least 6 characters' : 
+                    'পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে');
+                return;
+            }
+            
+            user.password = newPassword;
+            saveDataToStorage();
+            
+            // Show success message
+            alert(translations[state.currentLanguage]['Password reset successful']);
+            
+            // Show toast notification
+            showToast(translations[state.currentLanguage]['Password reset successful']);
+        }
+        
+        // Toggle user status (activate/deactivate)
+        function toggleUserStatus(userId) {
+            const user = state.users.find(u => u.id === userId);
+            if (!user) return;
+            
+            user.active = !user.active;
+            saveDataToStorage();
+            
+            // Refresh user management
+            loadUsers();
+            
+            // Show success message
+            alert(translations[state.currentLanguage]['User status updated']);
+            
+            // Show toast notification
+            showToast(translations[state.currentLanguage]['User status updated']);
+        }
+        
+        // Initialize the app
+        init();
+    </script>
+</body>
+</html>
